@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Chat Room</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body {
+            background-color: #121212;
+            color: #ffffff;
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin: 0;
+            padding: 0;
+        }
+        #chat-box {
+            width: 95%;
+            max-width: 600px;
+            height: 60vh;
+            overflow-y: auto;
+            border: 1px solid #ccc;
+            padding: 10px;
+            background: #1e1e1e;
+            margin: auto;
+            border-radius: 10px;
+        }
+        .message {
+            padding: 10px;
+            border-radius: 10px;
+            margin: 5px;
+            width: fit-content;
+            max-width: 80%;
+            word-wrap: break-word;
+        }
+        .own {
+            background-color: #007bff;
+            color: white;
+            margin-left: auto;
+        }
+        .others {
+            background-color: #444;
+            text-align: left;
+        }
+        .system-message {
+            background-color: #ff4d4d;
+            color: white;
+            text-align: center;
+            font-weight: bold;
+            padding: 5px;
+            border-radius: 5px;
+            margin: 5px;
+        }
+        #message-form {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-top: 10px;
+            width: 95%;
+            max-width: 600px;
+            margin: auto;
+        }
+        #message-input {
+            flex: 1;
+            padding: 10px;
+            border-radius: 5px;
+            border: none;
+            margin-right: 5px;
+            font-size: 16px;
+        }
+        #send-button {
+            padding: 10px;
+            border: none;
+            background-color: #007bff;
+            color: white;
+            cursor: pointer;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+        #send-button:hover {
+            background-color: #0056b3;
+        }
+        .file-message a {
+            color: #00c3ff;
+            text-decoration: none;
+        }
+        .file-message a:hover {
+            text-decoration: underline;
+        }
+        .image-preview {
+            max-width: 100px;
+            max-height: 100px;
+            border-radius: 5px;
+            margin-top: 5px;
+        }
+        #upload-form {
+            width: 95%;
+            max-width: 600px;
+            margin: auto;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        #file-input {
+            flex: 1;
+            font-size: 14px;
+        }
+        #upload-button {
+            padding: 10px;
+            border: none;
+            background-color: #28a745;
+            color: white;
+            cursor: pointer;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+        #upload-button:hover {
+            background-color: #218838;
+        }
+    </style>
+</head>
+<body>
+    <h2>Chat Room: {{ server.name }}</h2>
+    <div id="chat-box">
+        {% for msg in messages %}
+            <div class="message {% if msg.username == username %}own{% else %}others{% endif %}">
+                <strong>{{ msg.username }}</strong>: {{ msg.message }}
+            </div>
+        {% endfor %}
+
+        {% for file in files %}
+            <div class="message file-message {% if file.username == username %}own{% else %}others{% endif %}">
+                <strong>{{ file.username }}</strong> sent a file: 
+                {% if file.filename.endswith('.jpg') or file.filename.endswith('.jpeg') or file.filename.endswith('.png') or file.filename.endswith('.gif') %}
+                    <br>
+                    <img src="{{ url_for('uploaded_file', filename=file.filename) }}" class="image-preview">
+                {% endif %}
+                <br>
+                <a href="{{ url_for('uploaded_file', filename=file.filename) }}" target="_blank">
+                    {{ file.filename }}
+                </a>
+            </div>
+        {% endfor %}
+    </div>
+
+    <form id="message-form">
+        <input type="text" id="message-input" placeholder="Type a message...">
+        <button type="button" id="send-button">Send</button>
+    </form>
+
+    <form id="upload-form" enctype="multipart/form-data" style="margin-top: 10px;">
+        <input type="file" id="file-input" required>
+        <button type="button" id="upload-button">Upload</button>
+    </form>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <script>
+        var socket = io.connect('https://' + document.domain + ':' + location.port);
+        var chatBox = document.getElementById('chat-box');
+        var messageInput = document.getElementById('message-input');
+        var sendButton = document.getElementById('send-button');
+        var uploadButton = document.getElementById('upload-button');
+        var fileInput = document.getElementById('file-input');
+
+        var room = "{{ server.code }}";
+        var username = "{{ username }}";
+
+        // Join the chat room on page load
+        socket.emit('join', { 'room': room, 'username': username });
+
+        // Listen for incoming messages
+        socket.on('message', function(data) {
+            var messageElement = document.createElement('div');
+            messageElement.classList.add('message');
+
+            if (data.username === username) {
+                messageElement.classList.add('own');
+            } else if (data.username === "System") {
+                messageElement.classList.add('system-message');
+            } else {
+                messageElement.classList.add('others');
+            }
+
+            messageElement.innerHTML = "<strong>" + data.username + "</strong>: " + data.msg;
+            chatBox.appendChild(messageElement);
+            chatBox.scrollTop = chatBox.scrollHeight;
+        });
+
+        // Detect when the user leaves the chat
+        window.addEventListener("beforeunload", function () {
+            socket.emit('leave', { 'room': room, 'username': username });
+        });
+
+        sendButton.addEventListener('click', function() {
+            var message = messageInput.value.trim();
+            if (message !== "") {
+                socket.emit('message', {
+                    msg: message,
+                    username: username,
+                    room: room
+                });
+                messageInput.value = ''; // Clear input after sending
+            }
+        });
+
+        messageInput.addEventListener("keypress", function(event) {
+            if (event.key === "Enter") {
+                event.preventDefault();
+                sendButton.click();
+            }
+        });
+
+        // Handle file uploads
+        uploadButton.addEventListener('click', function() {
+            var file = fileInput.files[0];
+            if (!file) return;
+
+            var formData = new FormData();
+            formData.append("file", file);
+
+            fetch("/upload/" + room, {
+                method: "POST",
+                body: formData
+            }).then(response => {
+                if (response.ok) {
+                    fileInput.value = ""; // Clear input field after upload
+                }
+            });
+        });
+    </script>
+</body>
+</html>

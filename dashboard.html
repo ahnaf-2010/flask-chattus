@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard</title>
+    <style>
+        body {
+            background: linear-gradient(135deg, #12c2e9, #c471ed, #f64f59);
+            font-family: Arial, sans-serif;
+            text-align: center;
+            color: white;
+        }
+        .container {
+            margin-top: 10%;
+        }
+        .form {
+            max-width: 400px;
+            margin: auto;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            color: black;
+        }
+        input {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+        }
+        .btn {
+            display: block;
+            width: 100%;
+            padding: 10px;
+            margin-top: 10px;
+            background-color: #ff4757;
+            color: white;
+            border-radius: 5px;
+            border: none;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+        .btn:hover {
+            background-color: #e84118;
+        }
+        #server-code {
+            display: none;
+            background: white;
+            color: black;
+            padding: 10px;
+            border-radius: 5px;
+            margin-top: 15px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Dashboard</h1>
+
+        <div class="form">
+            <h3>Create a New Server</h3>
+            <form action="/dashboard" method="POST" id="create-server-form">
+                <input type="hidden" name="action" value="create">
+                <input type="text" name="server_name" placeholder="Enter Server Name" required>
+                <button type="submit" class="btn">Create Server</button>
+            </form>
+
+            <div id="server-code">
+                <h3>Server Code:</h3>
+                <p id="code-text"></p>
+                <button class="btn" onclick="copyCode()">Copy Code</button>
+            </div>
+        </div>
+
+        <div class="form">
+            <h3>Join a Server</h3>
+            <form action="/dashboard" method="POST">
+                <input type="hidden" name="action" value="join">
+                <input type="text" name="server_code" placeholder="Enter Server Code" required>
+                <button type="submit" class="btn">Join Server</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        function copyCode() {
+            var codeText = document.getElementById("code-text").innerText;
+            navigator.clipboard.writeText(codeText);
+            alert("Copied: " + codeText);
+        }
+
+        document.getElementById("create-server-form").addEventListener("submit", function(event) {
+            event.preventDefault();  // Stop form from submitting normally
+
+            var formData = new FormData(this);
+            fetch("/dashboard", {
+                method: "POST",
+                body: formData
+            })
+            .then(response => response.json())  // Expect JSON response
+            .then(data => {
+                if (data.server_code) {
+                    document.getElementById("server-code").style.display = "block";
+                    document.getElementById("code-text").innerText = data.server_code;
+                }
+            });
+        });
+    </script>
+</body>
+</html>
